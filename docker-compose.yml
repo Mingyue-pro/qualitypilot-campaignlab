@@ -1,0 +1,20 @@
+services:
+  mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_DATABASE: campaignlab
+      MYSQL_USER: campaignlab
+      MYSQL_PASSWORD: campaignlab
+      MYSQL_ROOT_PASSWORD: campaignlab-root
+    ports:
+      - "3306:3306"
+    volumes:
+      - campaignlab-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-ucampaignlab", "-pcampaignlab"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  campaignlab-mysql-data:

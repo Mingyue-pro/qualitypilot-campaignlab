@@ -1,0 +1,35 @@
+{
+  "schema_version": 1,
+  "project": "CampaignLab",
+  "synthetic": true,
+  "bugs": [
+    {
+      "bug_id": "BUG-001",
+      "title": "标签过滤取反导致错误客群进入流程",
+      "status": "fixed",
+      "severity": "high",
+      "applicable_modules": ["audience-filter"]
+    },
+    {
+      "bug_id": "BUG-002",
+      "title": "并发执行绕过频控产生重复触达",
+      "status": "fixed",
+      "severity": "critical",
+      "applicable_modules": ["frequency-cap", "channel-idempotency"]
+    },
+    {
+      "bug_id": "BUG-003",
+      "title": "对照组用户错误进入短信渠道",
+      "status": "fixed",
+      "severity": "critical",
+      "applicable_modules": ["control-group", "channel"]
+    },
+    {
+      "bug_id": "BUG-004",
+      "title": "监控下游接收人数重复累计",
+      "status": "known_open",
+      "severity": "medium",
+      "applicable_modules": ["execution-metrics"]
+    }
+  ]
+}

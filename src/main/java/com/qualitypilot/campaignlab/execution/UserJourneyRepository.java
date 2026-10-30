@@ -1,0 +1,1 @@
+package com.qualitypilot.campaignlab.execution; import org.springframework.data.jpa.repository.JpaRepository; import java.util.List; public interface UserJourneyRepository extends JpaRepository<UserJourney,Long>{List<UserJourney> findByRunIdOrderByUserId(String runId);}

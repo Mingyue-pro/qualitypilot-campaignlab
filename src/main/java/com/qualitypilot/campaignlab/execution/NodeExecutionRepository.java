@@ -1,0 +1,1 @@
+package com.qualitypilot.campaignlab.execution; import org.springframework.data.jpa.repository.JpaRepository; import java.util.List; public interface NodeExecutionRepository extends JpaRepository<NodeExecution,Long>{List<NodeExecution> findByRunIdAndUserIdOrderById(String runId,String userId);}

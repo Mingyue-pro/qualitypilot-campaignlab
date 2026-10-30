@@ -1,0 +1,3 @@
+package com.qualitypilot.campaignlab.execution;
+import jakarta.persistence.*; import java.time.Instant;
+@Entity public class ChannelReceipt{@Id @GeneratedValue(strategy=GenerationType.IDENTITY)private Long id;@Column(name="run_id")private String runId;@Column(name="user_id")private String userId;@Column(name="node_key")private String nodeKey;private String channel;private String status;@Column(name="created_at")private Instant createdAt;protected ChannelReceipt(){}public ChannelReceipt(String r,String u,String n,String c,String s,Instant at){runId=r;userId=u;nodeKey=n;channel=c;status=s;createdAt=at;}}

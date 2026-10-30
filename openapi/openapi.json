@@ -1,0 +1,542 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "CampaignLab API",
+    "version": "1.0.0",
+    "description": "CampaignLab V1.0 当前实现的机器可读接口合同。MySQL 中的 doris_user_profile 和渠道回执均为合成模拟，不代表真实 Doris 或外部渠道接入。"
+  },
+  "servers": [
+    { "url": "http://127.0.0.1:8080", "description": "本地 Spring Boot 后端" }
+  ],
+  "tags": [
+    { "name": "Audiences", "description": "CDP 客群圈选、版本、计算批次和成员" },
+    { "name": "Marketing plans", "description": "MDP 营销计划与流程画布" },
+    { "name": "Execution", "description": "计划运行、用户旅程和节点轨迹" },
+    { "name": "Legacy rewards", "description": "早期权益领取技术切片，不属于 MDP 主链路" },
+    { "name": "Test support", "description": "仅供本地合成环境恢复数据" }
+  ],
+  "paths": {
+    "/api/audiences": {
+      "get": {
+        "tags": ["Audiences"],
+        "operationId": "listAudiences",
+        "summary": "查询客群列表",
+        "responses": {
+          "200": { "description": "按创建时间倒序返回客群最新规则版本和计算批次", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/AudienceView" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Audiences"],
+        "operationId": "createAudience",
+        "summary": "创建客群并生成 R1 计算批次",
+        "parameters": [{ "$ref": "#/components/parameters/XRoleOperator" }],
+        "requestBody": { "$ref": "#/components/requestBodies/CreateAudience" },
+        "responses": {
+          "201": { "description": "客群、V1 规则和 R1 成员快照创建成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AudienceView" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/audiences/preview": {
+      "post": {
+        "tags": ["Audiences"],
+        "operationId": "previewAudience",
+        "summary": "预览当前画像匹配结果但不保存",
+        "parameters": [{ "$ref": "#/components/parameters/XRoleOperator" }],
+        "requestBody": { "$ref": "#/components/requestBodies/CreateAudience" },
+        "responses": {
+          "200": { "description": "预览结果", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AudiencePreview" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/audiences/{id}/refresh": {
+      "post": {
+        "tags": ["Audiences"],
+        "operationId": "refreshDynamicAudience",
+        "summary": "重新计算动态客群并生成下一个 R 批次",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRoleOperator" },
+          { "$ref": "#/components/parameters/AudienceId" }
+        ],
+        "responses": {
+          "201": { "description": "刷新成功，规则版本不变，批次号增加", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AudienceView" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/audiences/{id}/versions/{version}/publish": {
+      "post": {
+        "tags": ["Audiences"],
+        "operationId": "publishAudienceVersion",
+        "summary": "发布指定客群规则版本",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRoleOperator" },
+          { "$ref": "#/components/parameters/AudienceId" },
+          { "$ref": "#/components/parameters/AudienceVersion" }
+        ],
+        "responses": {
+          "200": { "description": "发布成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AudienceView" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/audiences/{id}/versions/{version}": {
+      "get": {
+        "tags": ["Audiences"],
+        "operationId": "getAudienceVersion",
+        "summary": "查询指定客群规则版本及其最新计算批次",
+        "parameters": [
+          { "$ref": "#/components/parameters/AudienceId" },
+          { "$ref": "#/components/parameters/AudienceVersion" }
+        ],
+        "responses": {
+          "200": { "description": "客群版本", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/AudienceView" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/audiences/{id}/versions/{version}/members": {
+      "get": {
+        "tags": ["Audiences"],
+        "operationId": "listAudienceMembers",
+        "summary": "查询指定规则版本最新计算批次的成员画像",
+        "parameters": [
+          { "$ref": "#/components/parameters/AudienceId" },
+          { "$ref": "#/components/parameters/AudienceVersion" }
+        ],
+        "responses": {
+          "200": { "description": "按用户 ID 排序的成员画像", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/SyntheticUser" } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/marketing-plans": {
+      "get": {
+        "tags": ["Marketing plans"],
+        "operationId": "listMarketingPlans",
+        "summary": "查询营销计划列表",
+        "responses": {
+          "200": { "description": "计划及完整画布", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/MarketingPlanView" } } } } }
+        }
+      },
+      "post": {
+        "tags": ["Marketing plans"],
+        "operationId": "createMarketingPlan",
+        "summary": "创建营销计划草稿",
+        "description": "草稿允许图不完整，但节点键必须唯一且每条边的端点必须存在。",
+        "parameters": [{ "$ref": "#/components/parameters/XRoleOperator" }],
+        "requestBody": { "$ref": "#/components/requestBodies/MarketingPlan" },
+        "responses": {
+          "201": { "description": "草稿创建成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MarketingPlanView" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/marketing-plans/{id}": {
+      "get": {
+        "tags": ["Marketing plans"],
+        "operationId": "getMarketingPlan",
+        "summary": "查询营销计划及完整画布",
+        "parameters": [{ "$ref": "#/components/parameters/MarketingPlanId" }],
+        "responses": {
+          "200": { "description": "营销计划", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MarketingPlanView" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/marketing-plans/{id}/publish": {
+      "post": {
+        "tags": ["Marketing plans"],
+        "operationId": "publishMarketingPlan",
+        "summary": "校验并发布营销计划",
+        "description": "校验已发布客群版本、节点配置、分支标签、可达性、无环和终止路径。",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRoleOperator" },
+          { "$ref": "#/components/parameters/MarketingPlanId" }
+        ],
+        "responses": {
+          "200": { "description": "发布成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MarketingPlanView" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/marketing-plans/{id}/runs": {
+      "post": {
+        "tags": ["Execution"],
+        "operationId": "startMarketingPlanRun",
+        "summary": "启动已发布计划",
+        "description": "固定该客群规则版本最新的计算批次，并同步生成逐用户流程与轨迹。",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRoleOperator" },
+          { "$ref": "#/components/parameters/MarketingPlanId" }
+        ],
+        "responses": {
+          "201": { "description": "执行批次创建完成", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/RunView" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/runs": {
+      "get": {
+        "tags": ["Execution"],
+        "operationId": "listRuns",
+        "summary": "查询全部执行批次",
+        "responses": {
+          "200": { "description": "执行批次", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/RunView" } } } } }
+        }
+      }
+    },
+    "/api/runs/{runId}/journeys": {
+      "get": {
+        "tags": ["Execution"],
+        "operationId": "listRunJourneys",
+        "summary": "查询执行批次中的逐用户流程实例",
+        "parameters": [{ "$ref": "#/components/parameters/RunId" }],
+        "responses": {
+          "200": { "description": "按用户 ID 排序的流程实例；当前运行不存在时也返回空数组", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/UserJourney" } } } } }
+        }
+      }
+    },
+    "/api/runs/{runId}/journeys/{userId}/trace": {
+      "get": {
+        "tags": ["Execution"],
+        "operationId": "getUserTrace",
+        "summary": "查询指定用户的有序节点执行轨迹",
+        "parameters": [
+          { "$ref": "#/components/parameters/RunId" },
+          { "$ref": "#/components/parameters/UserIdPath" }
+        ],
+        "responses": {
+          "200": { "description": "按轨迹自增 ID 排序；运行存在但用户无轨迹时返回空数组", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/NodeExecution" } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/campaigns": {
+      "post": {
+        "tags": ["Legacy rewards"],
+        "operationId": "createLegacyCampaign",
+        "summary": "创建遗留权益活动草稿",
+        "parameters": [{ "$ref": "#/components/parameters/XRoleOperator" }],
+        "requestBody": { "$ref": "#/components/requestBodies/CreateLegacyCampaign" },
+        "responses": {
+          "201": { "description": "活动草稿创建成功", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LegacyCampaign" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    },
+    "/api/campaigns/{id}": {
+      "get": {
+        "tags": ["Legacy rewards"],
+        "operationId": "getLegacyCampaign",
+        "summary": "查询遗留权益活动",
+        "parameters": [{ "$ref": "#/components/parameters/LegacyCampaignId" }],
+        "responses": {
+          "200": { "description": "权益活动", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LegacyCampaign" } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      }
+    },
+    "/api/campaigns/{id}/activate": {
+      "post": {
+        "tags": ["Legacy rewards"],
+        "operationId": "activateLegacyCampaign",
+        "summary": "激活遗留权益活动",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRoleOperator" },
+          { "$ref": "#/components/parameters/LegacyCampaignId" }
+        ],
+        "responses": {
+          "200": { "description": "活动已激活", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/LegacyCampaign" } } } },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/campaigns/{id}/claims": {
+      "get": {
+        "tags": ["Legacy rewards"],
+        "operationId": "listLegacyClaims",
+        "summary": "查询遗留活动的领取记录",
+        "parameters": [{ "$ref": "#/components/parameters/LegacyCampaignId" }],
+        "responses": {
+          "200": { "description": "领取记录", "content": { "application/json": { "schema": { "type": "array", "items": { "$ref": "#/components/schemas/Claim" } } } } },
+          "404": { "$ref": "#/components/responses/NotFound" }
+        }
+      },
+      "post": {
+        "tags": ["Legacy rewards"],
+        "operationId": "claimLegacyCampaign",
+        "summary": "领取遗留活动权益",
+        "parameters": [
+          { "$ref": "#/components/parameters/XRoleUser" },
+          { "$ref": "#/components/parameters/XUserId" },
+          { "$ref": "#/components/parameters/LegacyCampaignId" }
+        ],
+        "responses": {
+          "201": { "description": "领取成功并扣减一次库存", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/Claim" } } } },
+          "400": { "$ref": "#/components/responses/BadRequest" },
+          "403": { "$ref": "#/components/responses/Forbidden" },
+          "404": { "$ref": "#/components/responses/NotFound" },
+          "409": { "$ref": "#/components/responses/Conflict" }
+        }
+      }
+    },
+    "/api/test/reset": {
+      "post": {
+        "tags": ["Test support"],
+        "operationId": "resetSyntheticTestData",
+        "summary": "重置本地合成测试数据",
+        "description": "删除业务数据并重新装载固定合成画像。仅用于本地测试环境。",
+        "parameters": [{ "$ref": "#/components/parameters/XRoleOperator" }],
+        "responses": {
+          "204": { "description": "重置成功，无响应体" },
+          "403": { "$ref": "#/components/responses/Forbidden" }
+        }
+      }
+    }
+  },
+  "components": {
+    "parameters": {
+      "XRoleOperator": { "name": "X-Role", "in": "header", "required": true, "description": "当前操作需要 operator", "schema": { "type": "string", "const": "operator" } },
+      "XRoleUser": { "name": "X-Role", "in": "header", "required": true, "description": "当前操作需要 user", "schema": { "type": "string", "const": "user" } },
+      "XUserId": { "name": "X-User-Id", "in": "header", "required": true, "description": "执行领取操作的用户 ID", "schema": { "type": "string", "minLength": 1 } },
+      "AudienceId": { "name": "id", "in": "path", "required": true, "description": "客群 UUID", "schema": { "type": "string" } },
+      "AudienceVersion": { "name": "version", "in": "path", "required": true, "description": "规则版本号 V", "schema": { "type": "integer", "format": "int32", "minimum": 1 } },
+      "MarketingPlanId": { "name": "id", "in": "path", "required": true, "description": "营销计划 UUID", "schema": { "type": "string" } },
+      "RunId": { "name": "runId", "in": "path", "required": true, "description": "执行批次 UUID", "schema": { "type": "string" } },
+      "UserIdPath": { "name": "userId", "in": "path", "required": true, "description": "合成用户 ID", "schema": { "type": "string" } },
+      "LegacyCampaignId": { "name": "id", "in": "path", "required": true, "description": "遗留权益活动 UUID", "schema": { "type": "string" } }
+    },
+    "requestBodies": {
+      "CreateAudience": {
+        "required": true,
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateAudienceRequest" } } }
+      },
+      "MarketingPlan": {
+        "required": true,
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/MarketingPlanRequest" } } }
+      },
+      "CreateLegacyCampaign": {
+        "required": true,
+        "content": { "application/json": { "schema": { "$ref": "#/components/schemas/CreateLegacyCampaignRequest" } } }
+      }
+    },
+    "responses": {
+      "BadRequest": { "description": "请求字段或业务配置不合法", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+      "Forbidden": { "description": "X-Role 缺失或角色无权执行", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+      "NotFound": { "description": "请求的业务资源不存在", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } },
+      "Conflict": { "description": "当前业务状态不允许操作", "content": { "application/json": { "schema": { "$ref": "#/components/schemas/ErrorResponse" } } } }
+    },
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["code", "message", "timestamp"],
+        "properties": {
+          "code": { "type": "string", "example": "INVALID_STATE" },
+          "message": { "type": "string" },
+          "timestamp": { "type": "string", "format": "date-time" }
+        }
+      },
+      "AudienceCondition": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["field", "operator", "value"],
+        "properties": {
+          "field": { "type": "string", "enum": ["city", "memberLevel", "newUser", "riskLevel", "marketingAllowed"] },
+          "operator": { "type": "string", "enum": ["EQUALS", "NOT_EQUALS"] },
+          "value": { "type": "string" }
+        }
+      },
+      "CreateAudienceRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "type", "refreshFrequency", "matchType", "conditions"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["STATIC", "DYNAMIC"] },
+          "refreshFrequency": { "type": "string", "enum": ["NONE", "DAILY"], "description": "STATIC 保存时归一化为 NONE；DYNAMIC 必须为 DAILY" },
+          "matchType": { "type": "string", "enum": ["ALL", "ANY"] },
+          "conditions": { "type": "array", "minItems": 1, "items": { "$ref": "#/components/schemas/AudienceCondition" } }
+        }
+      },
+      "AudiencePreview": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["estimatedCount", "memberIds"],
+        "properties": {
+          "estimatedCount": { "type": "integer", "format": "int32", "minimum": 0 },
+          "memberIds": { "type": "array", "items": { "type": "string" } }
+        }
+      },
+      "AudienceView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["audienceId", "name", "type", "refreshFrequency", "ruleVersion", "matchType", "published", "latestBatch", "memberCount", "calculatedAt"],
+        "properties": {
+          "audienceId": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["STATIC", "DYNAMIC"] },
+          "refreshFrequency": { "type": "string", "enum": ["NONE", "DAILY"] },
+          "ruleVersion": { "type": "integer", "format": "int32", "minimum": 1 },
+          "matchType": { "type": "string", "enum": ["ALL", "ANY"] },
+          "published": { "type": "boolean" },
+          "latestBatch": { "type": "integer", "format": "int32", "minimum": 1 },
+          "memberCount": { "type": "integer", "format": "int32", "minimum": 0 },
+          "calculatedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "SyntheticUser": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["userId", "city", "memberLevel", "newUser", "riskLevel", "marketingAllowed"],
+        "properties": {
+          "userId": { "type": "string" },
+          "city": { "type": ["string", "null"] },
+          "memberLevel": { "type": ["string", "null"] },
+          "newUser": { "type": "boolean" },
+          "riskLevel": { "type": ["string", "null"] },
+          "marketingAllowed": { "type": "boolean" }
+        }
+      },
+      "FlowNodeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["key", "type", "name", "config", "x", "y"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "type": { "type": "string", "enum": ["START", "MARKETING", "DECISION", "PLACEHOLDER", "DELAY", "END"] },
+          "name": { "type": ["string", "null"] },
+          "config": { "type": ["string", "null"], "description": "MARKETING: CALL/SMS/COUPON；DECISION: AB:a:b、LABEL:field=value、RECEIPT；DELAY: 正整数分钟" },
+          "x": { "type": "integer", "format": "int32" },
+          "y": { "type": "integer", "format": "int32" }
+        }
+      },
+      "FlowEdgeInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["source", "target", "branchLabel"],
+        "properties": {
+          "source": { "type": "string" },
+          "target": { "type": "string" },
+          "branchLabel": { "type": ["string", "null"], "description": "普通边为 null；判断边为 A/B、YES/NO 或 SUCCESS/FAILURE" }
+        }
+      },
+      "MarketingPlanRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "audienceId", "audienceVersion", "nodes", "edges"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "audienceId": { "type": "string" },
+          "audienceVersion": { "type": "integer", "format": "int32", "minimum": 1 },
+          "nodes": { "type": "array", "items": { "$ref": "#/components/schemas/FlowNodeInput" } },
+          "edges": { "type": "array", "items": { "$ref": "#/components/schemas/FlowEdgeInput" } }
+        }
+      },
+      "MarketingPlanView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "status", "audienceId", "audienceVersion", "nodes", "edges"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "status": { "type": "string", "enum": ["DRAFT", "PUBLISHED"] },
+          "audienceId": { "type": "string" },
+          "audienceVersion": { "type": "integer", "format": "int32", "minimum": 1 },
+          "nodes": { "type": "array", "items": { "$ref": "#/components/schemas/FlowNodeInput" } },
+          "edges": { "type": "array", "items": { "$ref": "#/components/schemas/FlowEdgeInput" } }
+        }
+      },
+      "RunView": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "planId", "audienceBatch", "status", "totalUsers", "startedAt"],
+        "properties": {
+          "id": { "type": "string" },
+          "planId": { "type": "string" },
+          "audienceBatch": { "type": "integer", "format": "int32", "minimum": 1 },
+          "status": { "$ref": "#/components/schemas/RunStatus" },
+          "totalUsers": { "type": "integer", "format": "int32", "minimum": 0 },
+          "startedAt": { "type": "string", "format": "date-time" }
+        }
+      },
+      "RunStatus": { "type": "string", "enum": ["RUNNING", "WAITING", "SUCCEEDED", "FAILED"] },
+      "UserJourney": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["runId", "userId", "status"],
+        "properties": {
+          "runId": { "type": "string" },
+          "userId": { "type": "string" },
+          "status": { "$ref": "#/components/schemas/RunStatus" }
+        }
+      },
+      "NodeExecution": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "runId", "userId", "nodeKey", "nodeType", "result", "branchLabel", "executedAt", "resumeAt"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "runId": { "type": "string" },
+          "userId": { "type": "string" },
+          "nodeKey": { "type": "string" },
+          "nodeType": { "type": "string", "enum": ["START", "MARKETING", "DECISION", "PLACEHOLDER", "DELAY", "END"] },
+          "result": { "type": ["string", "null"] },
+          "branchLabel": { "type": ["string", "null"] },
+          "executedAt": { "type": "string", "format": "date-time" },
+          "resumeAt": { "type": ["string", "null"], "format": "date-time" }
+        }
+      },
+      "CreateLegacyCampaignRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "startsAt", "endsAt", "inventory"],
+        "properties": {
+          "name": { "type": "string", "minLength": 1 },
+          "startsAt": { "type": "string", "format": "date-time" },
+          "endsAt": { "type": "string", "format": "date-time" },
+          "inventory": { "type": "integer", "format": "int32", "minimum": 0 }
+        }
+      },
+      "LegacyCampaign": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "name", "startsAt", "endsAt", "inventory", "status"],
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "startsAt": { "type": "string", "format": "date-time" },
+          "endsAt": { "type": "string", "format": "date-time" },
+          "inventory": { "type": "integer", "format": "int32", "minimum": 0 },
+          "status": { "type": "string", "enum": ["DRAFT", "ACTIVE", "ENDED"] }
+        }
+      },
+      "Claim": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "campaignId", "userId", "claimedAt"],
+        "properties": {
+          "id": { "type": "integer", "format": "int64" },
+          "campaignId": { "type": "string" },
+          "userId": { "type": "string" },
+          "claimedAt": { "type": "string", "format": "date-time" }
+        }
+      }
+    }
+  }
+}
